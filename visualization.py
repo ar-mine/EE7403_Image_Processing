@@ -21,7 +21,7 @@ def hist_show(img, ax):
     elif len(img.shape) == 2:
         g = img.flatten()
         g_peek = onecolor_hist(g, 'r')
-        str_argmax = "peek=(%d)" % (g_peek)
+        str_argmax = "peek=(%d)" % g_peek
         ax.set_title(str_argmax)
 
 

@@ -4,14 +4,21 @@ from matplotlib import pyplot as plt
 import visualization as vis
 import processing as proc
 import application as app
-import cv2 as cv
 
+# Read image information for RGB and Gray
+img = Image.open("./hive.jpg")
+img_np = np.array(img)
+img_g = img.convert('L')
+img_g_np = np.array(img_g)
+
+# Choose the no. of figure to showed
+fig_th = 1
 
 if __name__ == "__main__":
-    img = Image.open("./flower.jpg").convert('L')
-    img_np = np.array(img)
-
-    img2 = np.array([[[0, 0, 0], [127, 127, 127]], [[255, 255, 255], [0, 255, 255]]])
+    '''>>>>Fig 1.1<<<<'''
+    if fig_th == 1:
+        vis.compare(img_np, img_g_np)
+    # img2 = np.array([[[0, 0, 0], [127, 127, 127]], [[255, 255, 255], [0, 255, 255]]])
     # fig = plt.figure()
     # x = np.linspace(0, 1, 100)[1:]
     # y = 1 / (1 + 1 / x)
@@ -20,7 +27,7 @@ if __name__ == "__main__":
     # y = 1 / (1 + np.power(128 / x, 50))
     # fig.add_subplot(1, 2, 2)
     # plt.plot(x, y)
-    plt.imshow(img2)
+    # plt.imshow(img2)
 
     # pyr = proc.Pyramid(img_np)
     # pyr.pyrDown()
