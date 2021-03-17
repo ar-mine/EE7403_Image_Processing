@@ -2,8 +2,8 @@ from matplotlib import pyplot as plt
 import math
 
 
-def onecolor_hist(vec, color):
-    x, *_ = plt.hist(vec, bins=range(257), color=color, histtype='step')
+def onecolor_hist(vec, color, histtype='step'):
+    x, *_ = plt.hist(vec, bins=range(257), color=color, histtype=histtype)
     peek = x.argmax()
     return peek
 
@@ -20,7 +20,7 @@ def hist_show(img, ax):
         ax.set_title(str_argmax)
     elif len(img.shape) == 2:
         g = img.flatten()
-        g_peek = onecolor_hist(g, 'r')
+        g_peek = onecolor_hist(g, 'r', 'bar')
         str_argmax = "peek=(%d)" % g_peek
         ax.set_title(str_argmax)
 

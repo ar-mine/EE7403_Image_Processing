@@ -1,7 +1,6 @@
 import numpy as np
 
 
-# =================================> Point operators
 def bright_contrast(img, a, b):
     """
     Take a basic linear operation to an Image ndarray, which can be described as 'des = a .* img + b'
@@ -62,7 +61,7 @@ def cdf_mapping(vector, clip):
         hI = clip_histogram_(hI)
     cI = np.cumsum(hI, dtype=np.float64)
     cI = cI * 256.0 / N
-    cI = cI.astype(np.uint8)
+    cI = (cI-min(cI)).astype(np.uint8)
     return cI
 
 
@@ -72,28 +71,29 @@ def hist_equalization(img, clip=False):
         for channel in range(img.shape[2]):
             in_vector = img[:, :, channel].flatten()
             cI = cdf_mapping(in_vector, clip)
-            # 通过numpy的数组索引简化代码并加快运行速度
             img_ret[:, :, channel] = cI[img[:, :, channel]]
     else:
         in_vector = img.flatten()
         cI = cdf_mapping(in_vector, clip)
-        # 通过numpy的数组索引简化代码并加快运行速度
         img_ret = cI[img]
     return img_ret
 
 
-def contrast_limited_AHE(img, block):
+def contrast_limited_AHE(img_ori, block):
+    img = img_ori.copy()
     h = img.shape[0]
     w = img.shape[1]
     # 判断是灰度图还是彩色图
-    if len(img) >= 3:
+    if len(img.shape) >= 3:
         channel = img.shape[2]
     else:
         channel = 1
+        img = np.expand_dims(img, 2)
     # 四舍五入以减小分区的不均匀性
     step_r = int(h / block + 0.5)
     step_c = int(w / block + 0.5)
     hist_map = np.zeros((h, w, 256, channel))
+    # AHE part
     for i in range(block):
         for j in range(block):
             for c in range(channel):
@@ -129,6 +129,61 @@ def contrast_limited_AHE(img, block):
                                        hist_map[axis_x + sign_x, axis_y, img[x, y, c], c] * abs(rela_x) * (1 - abs(rela_y)) + \
                                        hist_map[axis_x, axis_y + sign_y, img[x, y, c], c] * (1 - abs(rela_x)) * abs(rela_y) + \
                                        hist_map[axis_x + sign_x, axis_y + sign_y, img[x, y, c], c] * abs(rela_x) * abs(rela_y)
+    if channel == 1:
+        return np.squeeze(img_ret, 2)
+    return img_ret
+
+
+def global_threshold(img):
+    init_th = 128
+    vector = img.flatten()
+    n = len(vector)
+    hist = np.histogram(vector, bins=range(257))[0]/n
+
+    g1 = hist[init_th+1:]
+    g2 = hist[:init_th]
+    mu1 = 0
+    for i, g in enumerate(g1):
+        mu1 += g * (i + init_th + 1)
+    mu1 /= sum(g1)+1e-8
+    mu2 = 0
+    for i, g in enumerate(g2):
+        mu2 += g * i
+    mu2 /= sum(g2)+1e-8
+    old_th = init_th
+    th = int((mu1 + mu2) / 2)
+    while abs(old_th-th) > 1:
+        g1 = hist[th + 1:]
+        g2 = hist[:th]
+        mu1 = 0
+        for i, g in enumerate(g1):
+            mu1 += g * (i + th + 1)
+        mu1 /= sum(g1)+1e-8
+        mu2 = 0
+        for i, g in enumerate(g2):
+            mu2 += g * i
+        mu2 /= sum(g2)+1e-8
+        old_th = th
+        th = int((mu1 + mu2) / 2)
+
+    img_th = np.zeros(img.shape)
+    img_th[img > th] = 255
+    return img_th
+
+
+def adaptive_threshold(img_ori, block):
+    img_ret = np.zeros(img_ori.shape)
+    img = img_ori.copy()
+    h = img.shape[0]
+    w = img.shape[1]
+
+    step_r = int(h / block + 0.5)
+    step_c = int(w / block + 0.5)
+
+    for i in range(block):
+        for j in range(block):
+            img_block = img[i*step_r:min((i+1)*step_r, h), j*step_c:min((j+1)*step_c, w)]
+            img_ret[i*step_r:min((i+1)*step_r, h), j*step_c:min((j+1)*step_c, w)] = global_threshold(img_block)
     return img_ret
 
 
@@ -167,52 +222,52 @@ def convolve(arr, kernel, padding='full'):
     return arr_ret
 
 
-class Pyramid:
-    # TODO：有关图片尺寸错误信息的判断
-    def __init__(self, img):
-        self.gaussian = []
-        self.laplacian = []
-        self.gaussian.append(img)
-        self.index = 0
-
-    def pyrDown(self):
-        img_copy = self.gaussian[self.index]
-        img_temp = cv.resize(img_copy, (img_copy.shape[1]+4, img_copy.shape[0]+4))
-        img_temp = convolve_sep(img_temp, binominal_5)
-        map_scale = np.zeros((img_temp.shape[0]//2, img_temp.shape[1]//2))
-        for i in range(map_scale.shape[0]):
-            for j in range(map_scale.shape[1]):
-                map_scale[i, j] = img_temp[i*2+1, j*2+1]
-        self.gaussian.append(map_scale)
-        map_gaussian = self.rescale(self.gaussian[self.index+1])
-        self.laplacian.append(self.gaussian[self.index] - map_gaussian)
-        self.index += 1
-
-    def rescale(self, arr, scale=2):
-        arr_ret = np.zeros((arr.shape[0]*scale, arr.shape[1]*scale))
-        for i in range(arr.shape[0]):
-            for j in range(arr.shape[1]):
-                arr_ret[scale*i, scale*j] = arr[i, j]
-        return convolve_sep(arr_ret, binominal_5_2, 'same')
-
-    def gaussian_img(self, index):
-        img_ret = self.gaussian[index]
-        for i in range(index):
-            img_ret = self.rescale(img_ret)
-        return img_ret
-
-    def laplacian_img(self, index):
-        img_ret = self.laplacian[index]
-        for i in range(index):
-            img_ret = self.rescale(img_ret)
-        return img_ret
-
-    def clip(self, arr):
-        if arr.shape[0] % 2 == 1:
-            arr = arr[:-1, :]
-        if arr.shape[1] % 2 == 1:
-            arr = arr[:, :-1]
-        return arr
+# class Pyramid:
+#     # TODO：有关图片尺寸错误信息的判断
+#     def __init__(self, img):
+#         self.gaussian = []
+#         self.laplacian = []
+#         self.gaussian.append(img)
+#         self.index = 0
+#
+#     def pyrDown(self):
+#         img_copy = self.gaussian[self.index]
+#         img_temp = cv.resize(img_copy, (img_copy.shape[1]+4, img_copy.shape[0]+4))
+#         img_temp = convolve_sep(img_temp, binominal_5)
+#         map_scale = np.zeros((img_temp.shape[0]//2, img_temp.shape[1]//2))
+#         for i in range(map_scale.shape[0]):
+#             for j in range(map_scale.shape[1]):
+#                 map_scale[i, j] = img_temp[i*2+1, j*2+1]
+#         self.gaussian.append(map_scale)
+#         map_gaussian = self.rescale(self.gaussian[self.index+1])
+#         self.laplacian.append(self.gaussian[self.index] - map_gaussian)
+#         self.index += 1
+#
+#     def rescale(self, arr, scale=2):
+#         arr_ret = np.zeros((arr.shape[0]*scale, arr.shape[1]*scale))
+#         for i in range(arr.shape[0]):
+#             for j in range(arr.shape[1]):
+#                 arr_ret[scale*i, scale*j] = arr[i, j]
+#         return convolve_sep(arr_ret, binominal_5_2, 'same')
+#
+#     def gaussian_img(self, index):
+#         img_ret = self.gaussian[index]
+#         for i in range(index):
+#             img_ret = self.rescale(img_ret)
+#         return img_ret
+#
+#     def laplacian_img(self, index):
+#         img_ret = self.laplacian[index]
+#         for i in range(index):
+#             img_ret = self.rescale(img_ret)
+#         return img_ret
+#
+#     def clip(self, arr):
+#         if arr.shape[0] % 2 == 1:
+#             arr = arr[:-1, :]
+#         if arr.shape[1] % 2 == 1:
+#             arr = arr[:, :-1]
+#         return arr
 
 
 def byte_layer(arr):
@@ -242,8 +297,3 @@ def sorted_filter(arr, k_size):
             arr_ret[i, j] = temp[med-1]
     return arr_ret
 
-if __name__ == "__main__":
-    arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-    k = np.array([[1, 2, 1]])
-    ret1 = sorted_filter(arr, 3)
-    pass

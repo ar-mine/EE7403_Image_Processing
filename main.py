@@ -3,7 +3,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 import visualization as vis
 import processing as proc
-import application as app
 
 # Read image information for RGB and Gray
 img = Image.open("./hive.jpg")
@@ -12,36 +11,38 @@ img_g = img.convert('L')
 img_g_np = np.array(img_g)
 
 # Choose the no. of figure to showed
-fig_th = 1
+fig_th = 6
 
 if __name__ == "__main__":
-    '''>>>>Fig 1.1<<<<'''
     if fig_th == 1:
-        vis.compare(img_np, img_g_np)
-    # img2 = np.array([[[0, 0, 0], [127, 127, 127]], [[255, 255, 255], [0, 255, 255]]])
-    # fig = plt.figure()
-    # x = np.linspace(0, 1, 100)[1:]
-    # y = 1 / (1 + 1 / x)
-    # fig.add_subplot(1, 2, 1)
-    # plt.plot(x, y)
-    # y = 1 / (1 + np.power(128 / x, 50))
-    # fig.add_subplot(1, 2, 2)
-    # plt.plot(x, y)
-    # plt.imshow(img2)
-
-    # pyr = proc.Pyramid(img_np)
-    # pyr.pyrDown()
-    #
-
-    # img_test2 = img_np-proc.convolve(proc.convolve(img_np, proc.binominal_3, padding='same'), proc.binominal_3.T, padding='same')
-    # img_test = (img_np + img_test2).clip(min=0, max=255)
-    # vis.compare(img_np, img_test, img_test2)
-
-    # ret = proc.byte_layer(img_np)
-    # ret.append(img_np)
-    # ret.append(ret[7]*128+ret[6]*64)
-    # ret.append(ret[7] * 128 + ret[6] * 64+ret[5]*32)
-    # ret.append(ret[7] * 128 + ret[6] * 64 + ret[5] * 32+ret[4]*16)
-    # vis.grid_show(ret)
-
+        '''>>>>Fig 1.1<<<<'''
+        '''>>>>Fig 3.1<<<<'''
+        vis.compare(img_g_np)
+    elif fig_th == 2:
+        '''>>>>Fig 2.1, Fig 2.2<<<<'''
+        img_hist_eq = proc.hist_equalization(img_np)
+        img_g_hist_eq = proc.hist_equalization(img_g_np)
+        vis.compare(img_np, img_hist_eq)
+    elif fig_th == 3:
+        '''>>>>Fig 2.3<<<<'''
+        in_vector = img_g_np.flatten()
+        cI = proc.cdf_mapping(in_vector, False)
+        plt.plot(cI)
+    elif fig_th == 4:
+        '''>>>>Fig 2.5, Fig 2.6<<<<'''
+        img_hist_eq = proc.hist_equalization(img_np)
+        img_g_hist_eq = proc.hist_equalization(img_g_np)
+        img_ahist_eq = proc.contrast_limited_AHE(img_np, 8)
+        img_g_ahist_eq = proc.contrast_limited_AHE(img_g_np, 8)
+        vis.compare(img_g_np, img_g_hist_eq, img_g_ahist_eq)
+    elif fig_th == 5:
+        '''>>>>Fig 3.2<<<<'''
+        img_th = proc.global_threshold(img_g_np)
+        plt.imshow(img_th, cmap='gray')
+    elif fig_th == 6:
+        '''>>>>Fig 3.3<<<<'''
+        img_th1 = proc.global_threshold(img_g_np)
+        img_th2 = proc.adaptive_threshold(img_g_np, block=2)
+        img_th3 = proc.adaptive_threshold(img_g_np, block=4)
+        vis.grid_show([img_g_np, img_th1, img_th2, img_th3])
     plt.show()
