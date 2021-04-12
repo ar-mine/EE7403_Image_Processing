@@ -5,13 +5,13 @@ import visualization as vis
 import processing as proc
 
 # Read image information for RGB and Gray
-img = Image.open("./hive.jpg")
+img = Image.open("./sunny_doll.jpg")
 img_np = np.array(img)
 img_g = img.convert('L')
 img_g_np = np.array(img_g)
 
 # Choose the no. of figure to showed
-fig_th = 6
+fig_th = 7
 
 if __name__ == "__main__":
     if fig_th == 1:
@@ -45,4 +45,31 @@ if __name__ == "__main__":
         img_th2 = proc.adaptive_threshold(img_g_np, block=2)
         img_th3 = proc.adaptive_threshold(img_g_np, block=4)
         vis.grid_show([img_g_np, img_th1, img_th2, img_th3])
+    elif fig_th == 7:
+        img_x = proc.convolve(img_g_np, proc.sobel, padding='full')
+        img_y = proc.convolve(img_g_np, np.transpose(proc.sobel), padding='full')
+        mag = np.sqrt(img_x*img_x+img_y*img_y)
+        pha = np.arctan2(img_y, img_x)
+        candidate = mag > 20
+        h, w = candidate.shape
+        max_dis = np.ceil(np.sqrt(h**2+w**2))
+        theta = np.array(range(-90, 90, 1))
+        interval = max_dis/90
+        mapping = np.zeros((180, 180))
+        pos = []
+        whole = []
+        number = 0
+        for i in range(h):
+            for j in range(w):
+                if candidate[i, j]:
+                    number += 1
+                    p = i*np.cos(theta*np.pi/180) + j*np.sin(theta*np.pi/180)
+                    pp = np.floor((p+max_dis)/interval).astype(np.int)
+                    pos.append([i, j])
+                    whole.append(pp)
+                    for k in range(0, 180, 1):
+                        mapping[k, pp[k]] += 1
+        a = np.argmax(mapping)
+        vis.grid_show([np.transpose(mapping)])
+        print(number)
     plt.show()

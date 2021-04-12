@@ -199,6 +199,9 @@ laplacian = np.array([[-1, -1, -1],
 laplacian2 = np.array([[-0.5, -0.5, -0.5],
                       [-0.5, 4, -0.5],
                       [-0.5, -0.5, -0.5]])
+sobel = np.array([[-1, 0, 1],
+                  [-2, 0, 2],
+                  [-1, 0, 1]])
 
 
 def convolve(arr, kernel, padding='full'):
